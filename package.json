@@ -1,0 +1,55 @@
+{
+  "name": "claudegate",
+  "version": "0.1.0",
+  "description": "Native macOS menu bar anti-ban proxy gate, 7-probe IP/DNS/IPv6/WebRTC leak detector, and one-click Clash Verge Rev (Mihomo) auto-fixer for Claude & Anthropic. Zero TLS MITM, 0-byte fail-closed.",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "license": "MIT",
+  "homepage": "https://github.com/hsjx945/claudegate#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hsjx945/claudegate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hsjx945/claudegate/issues"
+  },
+  "os": [
+    "darwin"
+  ],
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "keywords": [
+    "claude",
+    "anthropic",
+    "claude-code",
+    "anti-ban",
+    "clash-verge",
+    "mihomo",
+    "macos",
+    "menubar",
+    "proxy-gate",
+    "fail-closed",
+    "socks5",
+    "dns-leak",
+    "ipv6-leak",
+    "webrtc-leak",
+    "ip-purity",
+    "network-detector",
+    "swift",
+    "typescript"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:app": "bash scripts/build-app.sh",
+    "app": "bash scripts/build-app.sh && open build/ClaudeGate.app",
+    "start": "node dist/src/index.js start",
+    "dev": "tsc && node dist/src/index.js start",
+    "check": "node dist/src/index.js check",
+    "test": "tsc && node --test dist/tests/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

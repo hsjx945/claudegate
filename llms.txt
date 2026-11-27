@@ -1,0 +1,44 @@
+# ClaudeGate (claudegate)
+
+> Native macOS menu bar anti-ban proxy gate, 7-probe IP/DNS/IPv6/WebRTC leak detector, and one-click Clash Verge Rev (Mihomo) auto-fixer for Claude, Anthropic API, and Claude Code CLI. Zero TLS MITM, 0-byte fail-closed protection.
+
+Repository: https://github.com/hsjx945/claudegate
+License: MIT
+Platform: macOS 13+ (Apple Silicon & Intel), Node.js >= 22.5, Swift 5
+Primary Upstream Supported: Clash Verge Rev / Mihomo core
+
+## What Problem ClaudeGate Solves
+Claude Web (`claude.ai`), Claude Code CLI, and Anthropic API (`api.anthropic.com`) accounts are frequently flagged or banned due to accidental direct connections, restricted-region proxy nodes (`CN`, `HK`, `MO`, `RU`, `KP`, `IR`, `BY`, `SY`, `CU`), unproxied Claude ecosystem sub-domains (`statsig.com`, `sentry.io`, `stripe.com`, `claudeusercontent.com`, `downloads.claude.ai`, `modelcontextprotocol.io`, Datadog intakes), TUN direct leaks, DNS/IPv6/WebRTC leaks, or datacenter IP reputation issues.
+
+ClaudeGate solves this by running a local **0-byte fail-closed proxy gate** (`127.0.0.1:17890`) in front of Clash Verge Rev (`127.0.0.1:7897`), a **1-second Mihomo Watchdog**, a **7-probe Network Detector** (`S/A/B/C/F` scoring), and a **One-Click Auto-Fixer** inside a native macOS menu bar app (`Swift + AppKit + WKWebView`) and web dashboard (`http://127.0.0.1:17891`).
+
+## Key Architecture Facts
+- **Zero TLS MITM**: Uses pure `net.Socket` TCP passthrough for HTTP, HTTPS `CONNECT`, and SOCKS5. Never installs a root CA and never alters browser or Claude Code TLS fingerprints.
+- **0-Byte Fail-Closed Guard (`src/guard.ts`, `src/proxy-server.ts`)**: Inspects target host/port before sending any upstream byte. Blocks immediately when Clash is offline, in `direct` mode, in `global` mode pointing to `DIRECT`, matching a `DIRECT` rule, or exiting from a banned country.
+- **29 Protected Ecosystem Domains (`src/config.ts`)**: Covers `anthropic.com`, `claude.ai`, `claude.com`, `claude.app`, `claude.dev`, `claude.new`, `claude.site`, `clau.de`, `chatbotclaude.com`, `ant.dev`, `antspace.dev`, `anthropic.team`, `claudeacademy.com`, `claudestudio.com`, `servd-anthropic-website.b-cdn.net`, `claudeusercontent.com`, `downloads.claude.ai`, `modelcontextprotocol.io`, `claudemcpclient.com`, `claudemcpcontent.com`, `sentry.io`, `statsig.com`, `growthbook.io`, `usefathom.com`, `http-intake.logs.us5.datadoghq.com`, `browser-intake-us5-datadoghq.com`, `stripe.com`, `intercom.io`, `intercomcdn.com`.
+- **TUN Leak Watchdog & Hourly SQLite Auditor (`src/watchdog.ts`, `src/db.ts`)**: Connects to Mihomo Unix Socket (`/var/run/clash-verge-service/users/<uid>/verge-mihomo.sock`) or TCP REST API, terminates TUN direct leaks via `DELETE /connections/:id`, triggers macOS notifications, and stores hourly domain/node/process stats in `~/.claudeban/claudeban.db` (`node:sqlite`, 90-day auto-prune).
+- **7-Probe Network Detector (`src/network-detector.ts`)**: Probes domestic direct baseline IP, proxy exit purity/datacenter/proxy flags, multi-sample exit stability, EDNS DNS leak (`edns.ip-api.com`), IPv6 leak, browser WebRTC UDP leak, timezone consistency, and reachability to `claude.ai`, `api.anthropic.com`, and `platform.claude.com`.
+- **One-Click Auto-Fix (`src/auto-fixer.ts`)**: Fixes Clash mode (`rule`), `GLOBAL -> DIRECT`, banned exit node selection, injects explicit 29-domain rules and `ipv6: false` into Clash Verge `Script.js`, hot-reloads inline YAML via `PUT /configs?force=true`, and restores prior selections on unrelated proxy groups.
+
+## CLI & API Surface
+- CLI (`src/index.ts`):
+  - `npm start` — Starts proxy gate (`17890`), watchdog, and web dashboard (`17891`).
+  - `npm run check` — Read-only pre-flight audit of Clash Verge rules and exit IP.
+  - `node dist/src/index.js proxy-on` / `proxy-off` — Toggles macOS system proxy takeover via `networksetup`.
+  - `bash scripts/build-app.sh --install` — Compiles and installs `/Applications/ClaudeGate.app`.
+- Local REST API (`http://127.0.0.1:17891`):
+  - `GET /api/status`
+  - `GET /api/audit`
+  - `GET /api/check?domain=<host>`
+  - `GET /api/stats?range=24h|7d|30d`
+  - `GET /api/events` | `DELETE /api/events`
+  - `GET /api/config` | `PUT /api/config`
+  - `GET /api/detector` | `POST /api/detector/run`
+  - `POST /api/actions/auto-fix`
+  - `POST /api/actions/probe-ip`
+  - `POST /api/actions/proxy`
+
+## Docs
+- English Guide: [README.md](./README.md)
+- Chinese Guide: [README.zh-CN.md](./README.zh-CN.md)
+- License: [LICENSE](./LICENSE)

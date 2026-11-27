@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ClaudeGate · Claude 防封号门禁与网络体检</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- Sticky Frosted-Glass Top Navigation Bar -->
+  <div class="topbar-sticky">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">🛡️</div>
+        <span class="brand-name">ClaudeGate</span>
+      </div>
+
+      <nav class="nav-pills" id="main-nav">
+        <button class="nav-pill active" data-tab="overview">概览</button>
+        <button class="nav-pill" data-tab="detector">网络体检</button>
+        <button class="nav-pill" data-tab="rules">规则审计</button>
+        <button class="nav-pill" data-tab="traffic">流量统计</button>
+        <button class="nav-pill" data-tab="settings">日志与设置</button>
+      </nav>
+
+      <div class="topbar-tools">
+        <button id="btn-mask-ip" class="icon-btn" title="显示或脱敏 IP">👁️</button>
+        <button id="btn-theme-toggle" class="icon-btn" title="切换浅色 / 深色主题">☀️</button>
+      </div>
+    </header>
+  </div>
+
+  <div class="shell">
+    <!-- TAB 1: OVERVIEW -->
+    <main id="tab-overview" class="tab-panel active">
+      <section class="hero-row">
+        <div>
+          <h1 class="hero-title">ClaudeGate 门禁哨兵 👋</h1>
+          <div class="hero-chips">
+            <span class="meta-chip" id="chip-clash-mode">Clash: 检测中</span>
+            <span class="meta-chip" id="chip-tun-status">TUN: 检测中</span>
+            <span class="meta-chip" id="chip-sys-proxy">系统代理: 检测中</span>
+          </div>
+        </div>
+        <div class="hero-actions">
+          <button id="btn-goto-detector" class="btn btn-primary">🩺 开始深度网络体检</button>
+        </div>
+      </section>
+
+      <!-- 4 Core KPI Cards -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <span class="kpi-title"><span class="kpi-ico green">🛡️</span> 门禁健康度</span>
+            <span class="status-pill safe" id="kpi-health-badge">检测中</span>
+          </div>
+          <div class="kpi-big" id="kpi-health-val">-</div>
+          <div class="kpi-sub" id="kpi-health-sub">正在同步 Clash Verge 状态...</div>
+          <div class="progress-track">
+            <div class="progress-fill green" id="kpi-health-bar" style="width: 100%"></div>
+          </div>
+          <div class="kpi-foot">
+            <span id="kpi-health-foot">零解密透传门禁</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <span class="kpi-title"><span class="kpi-ico blue">🌍</span> 代理出口 & IP 属性</span>
+            <span class="status-pill neutral" id="kpi-purity-badge">待体检</span>
+          </div>
+          <div class="kpi-big mono" id="kpi-exit-ip">-</div>
+          <div class="kpi-sub" id="kpi-exit-sub">主节点: -</div>
+          <div class="progress-track"><div class="progress-fill blue" style="width: 100%"></div></div>
+          <div class="kpi-foot">
+            <span id="kpi-exit-isp">-</span>
+            <button id="btn-ov-probe-ip" class="link-btn">重新探测</button>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <span class="kpi-title"><span class="kpi-ico purple">⚡</span> Anthropic 端点可达性</span>
+            <span class="status-pill neutral" id="kpi-ep-badge">未检测</span>
+          </div>
+          <div class="endpoint-mini-list" id="ov-endpoints-list">
+            <div class="ep-mini-row"><span>claude.ai</span><span class="muted">待检测</span></div>
+            <div class="ep-mini-row"><span>api.anthropic.com</span><span class="muted">待检测</span></div>
+            <div class="ep-mini-row"><span>platform.claude.com</span><span class="muted">待检测</span></div>
+          </div>
+          <div class="kpi-foot">
+            <span>Web · API · OAuth</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-head">
+            <span class="kpi-title"><span class="kpi-ico cyan">📊</span> 24h 流量与拦截统计</span>
+            <span class="status-pill safe">SQLite</span>
+          </div>
+          <div class="kpi-big" id="kpi-claude-traffic">0 B</div>
+          <div class="kpi-sub" id="kpi-total-traffic">全网总流量: 0 B</div>
+          <div class="progress-track"><div class="progress-fill cyan" style="width: 35%"></div></div>
+          <div class="kpi-foot">
+            <span id="kpi-gate-reqs">门禁已检 0 次</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom 2 Wide Cards -->
+      <section class="two-col-grid">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div class="panel-title-wrap">
+              <span class="dot-status green" id="ov-proxy-dot"></span>
+              <h3>当前代理链路与系统接入</h3>
+            </div>
+            <span class="tag-pill" id="ov-proxy-tag">127.0.0.1:17890</span>
+          </div>
+
+          <div class="kv-list">
+            <div class="kv-item">
+              <span class="kv-k">门禁监听端口 (HTTP / HTTPS / SOCKS5)</span>
+              <span class="kv-v mono" id="ov-gate-addr">127.0.0.1:17890</span>
+            </div>
+            <div class="kv-item">
+              <span class="kv-k">上游 Clash Verge 端口</span>
+              <span class="kv-v mono" id="ov-upstream-addr">127.0.0.1:7897</span>
+            </div>
+            <div class="kv-item">
+              <span class="kv-k">Claude 主策略链路</span>
+              <span class="kv-v" id="ov-primary-chain">-</span>
+            </div>
+          </div>
+
+          <div class="cli-inline">
+            <code id="cli-snippet">export HTTP_PROXY=http://127.0.0.1:17890 HTTPS_PROXY=http://127.0.0.1:17890 ALL_PROXY=socks5://127.0.0.1:17890</code>
+            <button id="btn-copy-cli" class="btn btn-sm btn-outline">复制 CLI</button>
+          </div>
+
+          <button id="btn-toggle-proxy" class="btn btn-outline btn-block">🔌 将 macOS 系统代理接入 ClaudeGate</button>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <div class="panel-title-wrap">
+              <span>🩺</span>
+              <h3>风险诊断与一键修复</h3>
+            </div>
+            <span class="status-pill safe" id="ov-fix-status-pill">安全</span>
+          </div>
+
+          <div id="ov-alerts-list" class="ov-alerts-list">
+            <div class="ov-alert-ok">✅ 当前 Clash 规则、出口地区与 Claude 关联域名均配置正常。</div>
+          </div>
+
+          <label class="checkbox-row">
+            <input type="checkbox" id="chk-fix-include-proxy" />
+            <span>一键修复时同时将 macOS 系统代理接入 ClaudeGate</span>
+          </label>
+
+          <button id="btn-auto-fix" class="btn btn-primary btn-block">⚡ 一键修复全部安全隐患</button>
+          <div id="fix-report-box" class="fix-report hidden"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 2: NETWORK DETECTOR -->
+    <main id="tab-detector" class="tab-panel">
+      <section class="detector-hero panel-card">
+        <div class="detector-hero-top">
+          <div>
+            <div class="eyebrow">CLAUDE 环境检测与 IP 泄露检查</div>
+            <h2 id="det-hero-title">点击「开始深度检测」全面体检网络环境</h2>
+            <p class="muted" id="det-hero-sub">实时检测出口 IP 纯净度、机房/Proxy 属性、DNS 泄露、WebRTC UDP 泄露、IPv6 风险与 Anthropic 三端点可达性。</p>
+          </div>
+          <div class="detector-hero-actions">
+            <button id="btn-run-detector" class="btn btn-primary">🔍 开始深度检测 →</button>
+            <button id="btn-det-autofix" class="btn btn-outline hidden">⚡ 一键修复检测到的问题</button>
+          </div>
+        </div>
+
+        <div class="grade-strip">
+          <div class="grade-scale">
+            <span class="g-pill" data-g="F">F</span>
+            <span class="g-pill" data-g="C">C</span>
+            <span class="g-pill" data-g="B">B</span>
+            <span class="g-pill" data-g="A">A</span>
+            <span class="g-pill" data-g="S">S</span>
+            <span class="grade-score" id="det-score-text">-- / 100</span>
+          </div>
+          <div class="dim-pills" id="det-dim-pills">
+            <div class="dim-pill"><span>地区合规</span><strong>—</strong></div>
+            <div class="dim-pill"><span>IP 纯净度</span><strong>—</strong></div>
+            <div class="dim-pill"><span>防泄露</span><strong>—</strong></div>
+            <div class="dim-pill"><span>环境一致</span><strong>—</strong></div>
+            <div class="dim-pill"><span>分流路径</span><strong>—</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="three-col-grid">
+        <div class="panel-card compact">
+          <div class="card-k">国内直连出口 (绕过代理)</div>
+          <div class="card-v mono" id="det-direct-ip">—</div>
+          <div class="card-s" id="det-direct-loc">待检测</div>
+        </div>
+        <div class="panel-card compact">
+          <div class="card-k">海外代理出口 (Clash 链路)</div>
+          <div class="card-v mono" id="det-proxy-ip">—</div>
+          <div class="card-s" id="det-proxy-loc">待检测</div>
+        </div>
+        <div class="panel-card compact">
+          <div class="card-k">出口稳定性 (3 次连续采样)</div>
+          <div class="card-v" id="det-stability-val">—</div>
+          <div class="card-s" id="det-stability-sub">待检测</div>
+        </div>
+      </section>
+
+      <section class="two-col-grid">
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <h3>🌐 IP 属性与纯净度</h3>
+            <span class="status-pill neutral" id="det-purity-pill">待检测</span>
+          </div>
+          <div class="kv-list" id="det-purity-kv">
+            <div class="kv-item"><span class="kv-k">网络性质</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">ISP / 机构</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">ASN</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">IPv6 泄露检查</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">风险标签</span><span class="kv-v">—</span></div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <h3>🧬 DNS 泄露检测</h3>
+            <span class="status-pill neutral" id="det-dns-pill">待检测</span>
+          </div>
+          <div class="kv-list" id="det-dns-kv">
+            <div class="kv-item"><span class="kv-k">DNS 解析出口 IP</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">DNS 归属地</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">EDNS 网段</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">Clash TUN DNS 劫持</span><span class="kv-v">—</span></div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <h3>📡 WebRTC UDP 泄露检测</h3>
+            <span class="status-pill neutral" id="det-webrtc-pill">待检测</span>
+          </div>
+          <div class="kv-list" id="det-webrtc-kv">
+            <div class="kv-item"><span class="kv-k">UDP 探测状态</span><span class="kv-v">点击「开始深度检测」实时测试 STUN 通道</span></div>
+            <div class="kv-item"><span class="kv-k">公网候选 IP</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">本地/mDNS 候选</span><span class="kv-v">—</span></div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-head-row">
+            <h3>🧭 环境一致性与边缘节点</h3>
+            <span class="status-pill neutral" id="det-env-pill">待检测</span>
+          </div>
+          <div class="kv-list" id="det-env-kv">
+            <div class="kv-item"><span class="kv-k">系统时区 vs 出口时区</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">浏览器首选语言</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">Cloudflare Edge / TLS</span><span class="kv-v">—</span></div>
+            <div class="kv-item"><span class="kv-k">门禁系统代理接管</span><span class="kv-v">—</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head-row">
+          <div>
+            <h3>🚀 Anthropic 三大核心端点分别可达性</h3>
+            <p class="muted-sm">分别通过当前 Clash 代理链路探测 Web、API/CLI 与 Console/OAuth</p>
+          </div>
+        </div>
+        <div class="three-col-grid" id="det-endpoints-grid">
+          <div class="ep-card"><div class="ep-host">claude.ai</div><div class="ep-role">Web 主站 · 待检测</div></div>
+          <div class="ep-card"><div class="ep-host">api.anthropic.com</div><div class="ep-role">API & CLI · 待检测</div></div>
+          <div class="ep-card"><div class="ep-host">platform.claude.com</div><div class="ep-role">Console & OAuth · 待检测</div></div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head-row">
+          <div>
+            <h3>📋 风控审计明细与修复建议</h3>
+            <p class="muted-sm">针对本次体检发现的风险项给出处理建议</p>
+          </div>
+        </div>
+        <div id="det-findings-list" class="findings-list">
+          <div class="muted">尚未开始检测，请点击上方「开始深度检测」。</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 3: RULES AUDIT -->
+    <main id="tab-rules" class="tab-panel">
+      <section class="panel-card">
+        <div class="panel-head-row">
+          <div>
+            <h2>🔍 Claude 关联域名规则体检 & 实时测试器</h2>
+            <p class="muted-sm">输入任意域名测试门禁判定与 Clash 匹配链，或管理受保护域名列表</p>
+          </div>
+          <button id="btn-rules-autofix" class="btn btn-primary hidden">⚡ 一键补全缺失规则</button>
+        </div>
+
+        <div class="checker-bar">
+          <input id="input-check-domain" type="text" placeholder="输入域名立即检测，例如 claude.ai、statsig.com、stripe.com" value="claude.ai" />
+          <button id="btn-check-domain" class="btn btn-primary">立即测试</button>
+        </div>
+        <div id="check-result" class="check-result hidden"></div>
+
+        <div class="table-toolbar">
+          <input id="input-filter-rules" type="text" placeholder="按域名或分类筛选受保护列表..." />
+          <span class="muted-sm" id="rules-summary-badge">-</span>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>域名</th>
+                <th>分类</th>
+                <th>匹配规则</th>
+                <th>实际出口节点</th>
+                <th>门禁状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 4: TRAFFIC STATS -->
+    <main id="tab-traffic" class="tab-panel">
+      <section class="panel-card">
+        <div class="panel-head-row">
+          <div>
+            <h2>📊 流量统计与趋势</h2>
+            <p class="muted-sm">实时采集 Clash Verge 全量连接增量并持久化至本地 SQLite</p>
+          </div>
+          <div class="seg-tabs" id="range-tabs">
+            <button class="seg-tab active" data-range="24h">近 24 小时</button>
+            <button class="seg-tab" data-range="7d">近 7 天</button>
+            <button class="seg-tab" data-range="30d">近 30 天</button>
+          </div>
+        </div>
+
+        <div class="traffic-summary-row two">
+          <div class="t-box"><span class="muted-sm">Claude 生态流量 (<span id="lbl-range">24h</span>)</span><strong id="val-claude-traffic">0 B</strong></div>
+          <div class="t-box"><span class="muted-sm">全网总流量</span><strong id="sub-total-traffic">0 B</strong></div>
+        </div>
+
+        <div id="chart-container" class="chart-container"></div>
+
+        <div class="seg-tabs sub-tabs" id="ranking-tabs">
+          <button class="seg-tab active" data-rank="domains">按域名 TOP 25</button>
+          <button class="seg-tab" data-rank="nodes">按代理节点</button>
+          <button class="seg-tab" data-rank="processes">按本地进程</button>
+        </div>
+
+        <div class="table-wrap">
+          <table id="ranking-table">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 5: LOGS & SETTINGS -->
+    <main id="tab-settings" class="tab-panel">
+      <section class="panel-card">
+        <div class="panel-head-row">
+          <div>
+            <h2>🚨 拦截与告警审计日志</h2>
+            <p class="muted-sm">记录每一次阻止直连、掐断 TUN 泄漏、出口 IP 异常及修复记录</p>
+          </div>
+          <button id="btn-clear-events" class="btn btn-sm btn-outline">🗑️ 清空日志</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>动作</th>
+                <th>域名</th>
+                <th>来源</th>
+                <th>原因与修复指引</th>
+              </tr>
+            </thead>
+            <tbody id="events-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-head-row">
+          <div>
+            <h2>⚙️ 系统与门禁设置</h2>
+            <p class="muted-sm">管理开机启动、系统代理接管、风控拦截策略及端口配置</p>
+          </div>
+        </div>
+
+        <div class="settings-section-title">系统与启动</div>
+        <div class="settings-grid">
+          <label class="toggle-item">
+            <input type="checkbox" id="cfg-launch-at-login" />
+            <div>
+              <strong>🚀 开机自动启动</strong>
+              <span>登录 macOS 时自动启动 ClaudeGate 菜单栏哨兵（与菜单栏同步）</span>
+            </div>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" id="cfg-sys-proxy" />
+            <div>
+              <strong>🔌 macOS 系统代理接管</strong>
+              <span>将系统 HTTP/HTTPS/SOCKS 代理指向门禁端口以启用 0 字节事前拦截</span>
+            </div>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" id="cfg-notify" />
+            <div>
+              <strong>🔔 macOS 原生桌面通知</strong>
+              <span>拦截直连或出口 IP 异常时立即弹出桌面通知提醒</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="settings-section-title">门禁与防封策略</div>
+        <div class="settings-grid two">
+          <label class="toggle-item">
+            <input type="checkbox" id="cfg-strict-mode" />
+            <div>
+              <strong>🛡️ 严格模式 (Strict Mode)</strong>
+              <span>遇到出口 IP 未知、跨国跳变或自动测速策略组时也直接拦截</span>
+            </div>
+          </label>
+          <label class="toggle-item">
+            <input type="checkbox" id="cfg-auto-kill" />
+            <div>
+              <strong>⚡ 自动掐断 TUN 直连泄漏</strong>
+              <span>发现任何进程绕过代理直连 Claude 域名时，自动强行关闭该连接</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="settings-fields">
+          <div>
+            <label>出口 IP 自动探测间隔</label>
+            <select id="cfg-probe-interval" class="select-input">
+              <option value="15">每 15 秒</option>
+              <option value="30">每 30 秒（默认）</option>
+              <option value="60">每 60 秒</option>
+              <option value="120">每 120 秒</option>
+            </select>
+          </div>
+          <div>
+            <label>受限出口国家/地区代码（逗号分隔）</label>
+            <input id="cfg-banned-countries" type="text" placeholder="CN,HK,MO,RU,KP,IR,BY,SY,CU" />
+          </div>
+        </div>
+
+        <div class="settings-section-title">端口与受保护域名（端口修改后重启 App 生效）</div>
+        <div class="settings-fields three">
+          <div>
+            <label>门禁代理端口 (HTTP/SOCKS5)</label>
+            <input id="cfg-proxy-port" type="number" min="1024" max="65535" placeholder="17890" />
+          </div>
+          <div>
+            <label>上游 Clash Verge 端口</label>
+            <input id="cfg-upstream-port" type="number" min="1024" max="65535" placeholder="7897" />
+          </div>
+          <div>
+            <label>新增受保护域名</label>
+            <div class="inline-row">
+              <input id="cfg-new-domain" type="text" placeholder="例如 anthropic.org" />
+              <button id="btn-add-domain" class="btn btn-outline">添加</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="save-row">
+          <button id="btn-save-config" class="btn btn-primary">💾 保存设置</button>
+          <span id="save-toast" class="toast"></span>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
