@@ -2,20 +2,22 @@
 
 # ClaudeGate (`claudegate`)
 
-**macOS 原生菜单栏 Claude / Anthropic 防封号代理门禁、7 项网络风控体检与 Clash Verge Rev (Mihomo) 一键修复工具**
+**macOS & Windows 原生托盘/菜单栏 Claude / Anthropic 防封号代理门禁、7 项网络风控体检与 Clash Verge Rev (Mihomo) 一键修复工具**
 
 [English](./README.md) | **简体中文** | [llms.txt (AI 检索摘要)](./llms.txt)
 
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)](https://github.com/hsjx945/claudegate)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20(arm64%20%7C%20x64)-000000?logo=apple&logoColor=white)](https://github.com/hsjx945/claudegate/releases/latest)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6?logo=windows&logoColor=white)](https://github.com/hsjx945/claudegate/releases/latest)
 [![Node.js 22+](https://img.shields.io/badge/Node.js-22.5%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Swift 5](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)](https://swift.org/)
 [![Clash Verge Rev](https://img.shields.io/badge/Clash%20Verge%20Rev-Mihomo-2563EB)](https://github.com/clash-verge-rev/clash-verge-rev)
 [![零解密透传](https://img.shields.io/badge/TLS-%E9%9B%B6%E8%A7%A3%E5%AF%86%E9%80%8F%E4%BC%A0-10B981)](./README.zh-CN.md#%E6%9E%B6%E6%9E%84%E5%8E%9F%E7%90%86)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 </div>
 
-**ClaudeGate**（仓库名 `claudegate`）是一款专为 **macOS + Clash Verge Rev (Mihomo)** 打造的本地零解密前置安全门禁、网络环境体检与流量审计工具。它可在连接建立前的 **0 字节阶段（Fail-Closed）** 拦截直连或受限地区出口，内置 **7 项 IP 纯净度与泄漏检测（DNS / IPv6 / WebRTC）**，并支持对 Clash Verge 规则、模式与节点隐患进行 **一键自动修复**，提供右上角常驻的原生 macOS 菜单栏 App 与 Web 控制台。
+**ClaudeGate**（仓库名 `claudegate`）是一款支持 **macOS 菜单栏** 与 **Windows 系统托盘** 的本地零解密前置安全门禁、网络环境体检与流量审计工具，专为 **Clash Verge Rev (Mihomo)** 用户打造。它可在连接建立前的 **0 字节阶段（Fail-Closed）** 拦截直连或受限地区出口，并在 Clash 离线或系统代理与 TUN 均未开启导致网络未走代理时**弹窗并发出提示音告警**；内置 **7 项 IP 纯净度与泄漏检测（DNS / IPv6 / WebRTC）** 及 **一键自动修复**。
+
+> **免安装 Node.js 开箱即用版下载**：前往 [**GitHub Releases 页面**](https://github.com/hsjx945/claudegate/releases/latest) 直接获取 **macOS (Apple Silicon / Intel)** `.dmg`/`.zip` 与 **Windows x64** 绿色压缩包（内置便携 Node.js 运行时）。
 
 ---
 
@@ -110,7 +112,16 @@ flowchart LR
 - **Xcode Command Line Tools**（构建原生 `.app` 时需要 `swiftc` 和 `iconutil`）
 - **Clash Verge Rev**（或其他暴露标准 Mihomo REST API / Unix Socket 的内核，默认混合端口 `7897`）
 
-### 方式一：构建并运行原生 macOS 菜单栏 App（推荐）
+### 方式一：直接下载 Release 客户端（macOS & Windows 免配环境）
+
+前往 [**Releases 页面**](https://github.com/hsjx945/claudegate/releases/latest) 下载对应平台包（已内置 Node.js 22 运行时）：
+- **macOS (Apple Silicon M 系列)**：`ClaudeGate-<version>-macos-arm64.dmg` —— 拖入「应用程序」，首次若提示未识别开发者执行 `xattr -cr /Applications/ClaudeGate.app` 即可打开。
+- **macOS (Intel)**：`ClaudeGate-<version>-macos-x64.dmg`
+- **Windows 10 / 11 (x64)**：`ClaudeGate-<version>-windows-x64.zip` —— 解压后双击 `ClaudeGate.exe` 在系统托盘常驻运行。
+
+### 方式二：从源码编译构建桌面端 App
+
+**macOS 菜单栏 App：**
 
 ```bash
 git clone https://github.com/hsjx945/claudegate.git
@@ -122,7 +133,14 @@ bash scripts/build-app.sh --install
 open /Applications/ClaudeGate.app
 ```
 
-> 若仅临时运行不安装到 `/Applications`，可执行 `npm run app` 启动 `build/ClaudeGate.app`。
+**Windows 系统托盘 App：**
+
+```powershell
+git clone https://github.com/hsjx945/claudegate.git
+cd claudegate
+npm install
+powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1
+```
 
 ### 方式二：CLI / 后台模式
 

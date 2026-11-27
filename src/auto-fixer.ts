@@ -42,6 +42,10 @@ const PREFERRED_NODE_PATTERN =
   /美国|US|United\s*States|日本|JP|Japan|新加坡|SG|Singapore|台湾|TW|Taiwan|英国|UK|德国|DE|韩国|KR/i;
 
 export function getDefaultClashVergeDir(): string {
+  if (process.platform === "win32") {
+    const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+    return path.join(appData, "io.github.clash-verge-rev.clash-verge-rev");
+  }
   return path.join(
     os.homedir(),
     "Library/Application Support/io.github.clash-verge-rev.clash-verge-rev"

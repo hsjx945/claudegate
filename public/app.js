@@ -203,7 +203,7 @@ function renderStatus(data) {
   const proxyBtn = document.getElementById("btn-toggle-proxy");
   proxyBtn.textContent = data.systemProxy?.pointingToGate
     ? `✅ 系统代理已接管（点击恢复 ${data.gate.upstreamAddress}）`
-    : `🔌 将 macOS 系统代理接入 ClaudeGate (${data.gate.proxyAddress})`;
+    : `🔌 将系统代理接入 ClaudeGate (${data.gate.proxyAddress})`;
 
   document.getElementById("cli-snippet").textContent =
     `export HTTP_PROXY=http://${data.gate.proxyAddress} HTTPS_PROXY=http://${data.gate.proxyAddress} ALL_PROXY=socks5://${data.gate.proxyAddress} NO_PROXY=localhost,127.0.0.1,::1`;
@@ -793,7 +793,7 @@ document.getElementById("cfg-sys-proxy").addEventListener("change", async (e) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enable }),
   });
-  showSaveToast(enable ? "✅ 已开启 macOS 系统代理接管" : "✅ 已恢复原有系统代理");
+  showSaveToast(enable ? "✅ 已开启系统代理接管" : "✅ 已恢复原有系统代理");
   await refreshAll();
 });
 

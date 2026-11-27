@@ -2,20 +2,22 @@
 
 # ClaudeGate
 
-**Native macOS Anti-Ban Proxy Gate, 7-Probe Network Detector & Clash Verge Rev (Mihomo) Auto-Fixer for Claude & Anthropic**
+**Native macOS & Windows Anti-Ban Proxy Gate, 7-Probe Network Detector & Clash Verge Rev (Mihomo) Auto-Fixer for Claude & Anthropic**
 
 **English** | [简体中文](./README.zh-CN.md) | [llms.txt (For AI Agents)](./llms.txt)
 
-[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white)](https://github.com/hsjx945/claudegate)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B%20(arm64%20%7C%20x64)-000000?logo=apple&logoColor=white)](https://github.com/hsjx945/claudegate/releases/latest)
+[![Windows 10/11](https://img.shields.io/badge/Windows-10%2F11%20x64-0078D6?logo=windows&logoColor=white)](https://github.com/hsjx945/claudegate/releases/latest)
 [![Node.js 22+](https://img.shields.io/badge/Node.js-22.5%2B-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Swift 5](https://img.shields.io/badge/Swift-5-F05138?logo=swift&logoColor=white)](https://swift.org/)
 [![Clash Verge Rev](https://img.shields.io/badge/Clash%20Verge%20Rev-Mihomo-2563EB)](https://github.com/clash-verge-rev/clash-verge-rev)
 [![Zero TLS MITM](https://img.shields.io/badge/TLS-Zero%20MITM%20Passthrough-10B981)](./README.md#architecture)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
 </div>
 
-**ClaudeGate** (`claudegate`) is a native macOS menu bar application and zero-decryption **fail-closed proxy gate** built for **Clash Verge Rev (Mihomo)** users who rely on **Claude Web (`claude.ai`)**, **Claude Code CLI**, and the **Anthropic API (`api.anthropic.com`)**. It stops direct-IP leaks and restricted-region egress with **0 bytes leaked** before TLS handshakes begin, scores proxy IP purity and DNS/IPv6/WebRTC leaks with a 7-probe network detector, and fixes misconfigured Clash rules and nodes in one click.
+**ClaudeGate** (`claudegate`) is a native **macOS menu bar** and **Windows system tray** application backed by a zero-decryption **fail-closed proxy gate** built for **Clash Verge Rev (Mihomo)** users who rely on **Claude Web (`claude.ai`)**, **Claude Code CLI**, and the **Anthropic API (`api.anthropic.com`)**. It stops direct-IP leaks and restricted-region egress with **0 bytes leaked**, alerts with native desktop banners and audible sound whenever traffic bypasses the proxy, scores IP purity and DNS/IPv6/WebRTC leaks with a 7-probe detector, and fixes misconfigured Clash rules and nodes in one click.
+
+> **Pre-built Desktop Releases (No Node.js Required):** Download `.dmg` / `.zip` for **macOS (Apple Silicon & Intel)** and **Windows x64** on the [**GitHub Releases page**](https://github.com/hsjx945/claudegate/releases/latest).
 
 ---
 
@@ -110,7 +112,16 @@ Safely repairs issues detected by Watchdog or the Network Detector:
 - **Xcode Command Line Tools** (`swiftc`, `iconutil` — only needed when building the native `.app` bundle)
 - **Clash Verge Rev** (or any Mihomo/Clash core exposing REST API / Unix socket) running on `127.0.0.1:7897`
 
-### Option 1: Native macOS Menu Bar App (Recommended)
+### Option 1: Pre-built Desktop Releases (macOS & Windows)
+
+Download the latest self-contained bundle from [**Releases**](https://github.com/hsjx945/claudegate/releases/latest) (portable Node.js runtime included):
+- **macOS (Apple Silicon)**: `ClaudeGate-<version>-macos-arm64.dmg` — drag `ClaudeGate.app` into `/Applications` (if Gatekeeper prompts on first launch: `xattr -cr /Applications/ClaudeGate.app`).
+- **macOS (Intel)**: `ClaudeGate-<version>-macos-x64.dmg`
+- **Windows 10/11 (x64)**: `ClaudeGate-<version>-windows-x64.zip` — extract and double-click `ClaudeGate.exe` (runs in the Windows system tray).
+
+### Option 2: Build Native App from Source
+
+**macOS Menu Bar App (`Swift + AppKit + WKWebView`):**
 
 ```bash
 git clone https://github.com/hsjx945/claudegate.git
@@ -122,7 +133,14 @@ bash scripts/build-app.sh --install
 open /Applications/ClaudeGate.app
 ```
 
-> Or run without installing to `/Applications`: `npm run app` launches `build/ClaudeGate.app`.
+**Windows System Tray App (`C# WinForms + .NET Framework`):**
+
+```powershell
+git clone https://github.com/hsjx945/claudegate.git
+cd claudegate
+npm install
+powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1
+```
 
 ### Option 2: CLI / Headless Mode
 

@@ -8,12 +8,38 @@ CONTENTS_DIR="${APP_DIR}/Contents"
 MACOS_DIR="${CONTENTS_DIR}/MacOS"
 RESOURCES_DIR="${CONTENTS_DIR}/Resources"
 ENGINE_DIR="${RESOURCES_DIR}/engine"
+RUNTIME_DIR="${RESOURCES_DIR}/runtime"
+
+TARGET_ARCH="$(uname -m)"
+BUNDLE_NODE_PATH=""
+DO_INSTALL=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --install)
+      DO_INSTALL=1
+      shift
+      ;;
+    --arch)
+      TARGET_ARCH="${2:-$(uname -m)}"
+      shift 2
+      ;;
+    --bundle-node)
+      BUNDLE_NODE_PATH="${2:-}"
+      shift 2
+      ;;
+    *)
+      echo "Unknown flag: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
 echo "1) Building TypeScript engine..."
 cd "${ROOT_DIR}"
 npm run build
 
-echo "2) Assembling ${APP_DIR}..."
+echo "2) Assembling ${APP_DIR} (${TARGET_ARCH})..."
 rm -rf "${APP_DIR}"
 mkdir -p "${MACOS_DIR}" "${ENGINE_DIR}"
 
@@ -27,10 +53,9 @@ else
   rm -rf "${ICONSET_DIR}"
 fi
 
-echo "4) Compiling native Swift menu bar app..."
-ARCH="$(uname -m)"
+echo "4) Compiling native Swift menu bar app (${TARGET_ARCH})..."
 swiftc -O -swift-version 5 \
-  -target "${ARCH}-apple-macos13.0" \
+  -target "${TARGET_ARCH}-apple-macos13.0" \
   -framework AppKit \
   -framework WebKit \
   -o "${MACOS_DIR}/${APP_NAME}" \
@@ -82,9 +107,20 @@ cp -R "${ROOT_DIR}/dist" "${ENGINE_DIR}/dist"
 cp -R "${ROOT_DIR}/public" "${ENGINE_DIR}/public"
 cp "${ROOT_DIR}/package.json" "${ENGINE_DIR}/package.json"
 
-NODE_PATH="$(which node || true)"
-if [[ -n "${NODE_PATH}" ]]; then
-  echo "${NODE_PATH}" > "${ENGINE_DIR}/node-path.txt"
+if [[ -n "${BUNDLE_NODE_PATH}" ]]; then
+  if [[ ! -f "${BUNDLE_NODE_PATH}" ]]; then
+    echo "Error: --bundle-node file not found: ${BUNDLE_NODE_PATH}" >&2
+    exit 1
+  fi
+  echo "   Bundling portable Node runtime from ${BUNDLE_NODE_PATH}..."
+  mkdir -p "${RUNTIME_DIR}"
+  cp "${BUNDLE_NODE_PATH}" "${RUNTIME_DIR}/node"
+  chmod +x "${RUNTIME_DIR}/node"
+else
+  NODE_PATH="$(which node || true)"
+  if [[ -n "${NODE_PATH}" ]]; then
+    echo "${NODE_PATH}" > "${ENGINE_DIR}/node-path.txt"
+  fi
 fi
 
 echo "7) Signing app bundle (ad-hoc)..."
@@ -92,7 +128,7 @@ codesign --force --deep --sign - "${APP_DIR}"
 
 echo "✅ Built ${APP_DIR}"
 
-if [[ "${1:-}" == "--install" ]]; then
+if [[ "${DO_INSTALL}" == "1" ]]; then
   TARGET="/Applications/${APP_NAME}.app"
   if [[ -w "/Applications" ]]; then
     rm -rf "${TARGET}"

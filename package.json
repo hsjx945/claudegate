@@ -14,7 +14,8 @@
     "url": "https://github.com/hsjx945/claudegate/issues"
   },
   "os": [
-    "darwin"
+    "darwin",
+    "win32"
   ],
   "engines": {
     "node": ">=22.5.0"
@@ -27,6 +28,7 @@
     "clash-verge",
     "mihomo",
     "macos",
+    "windows",
     "menubar",
     "proxy-gate",
     "fail-closed",
@@ -42,6 +44,7 @@
   "scripts": {
     "build": "tsc",
     "build:app": "bash scripts/build-app.sh",
+    "build:win": "powershell -ExecutionPolicy Bypass -File scripts/build-windows.ps1",
     "app": "bash scripts/build-app.sh && open build/ClaudeGate.app",
     "start": "node dist/src/index.js start",
     "dev": "tsc && node dist/src/index.js start",

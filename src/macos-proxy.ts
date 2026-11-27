@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -109,10 +109,131 @@ export async function detectActiveNetworkService(): Promise<string | null> {
   }
 }
 
+const WIN_INET_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings";
+const WIN_RUN_KEY = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+const WIN_RUN_VALUE = "ClaudeGate";
+
+function parseWinRegValue(stdout: string, valueName: string): string {
+  const re = new RegExp(`^\\s*${valueName}\\s+REG_\\w+\\s+(.+)$`, "mi");
+  const m = stdout.match(re);
+  return m ? m[1].trim() : "";
+}
+
+function parseWinHostPort(entry: string): { host: string; port: number } {
+  const cleaned = entry.trim().replace(/^(https?|socks5?|socks):\/\//i, "");
+  const lastColon = cleaned.lastIndexOf(":");
+  if (lastColon <= 0) return { host: cleaned, port: 0 };
+  const host = cleaned.slice(0, lastColon).trim();
+  const port = Number(cleaned.slice(lastColon + 1).trim()) || 0;
+  return { host, port };
+}
+
+function parseWinProxyServer(raw: string): {
+  httpHost: string;
+  httpPort: number;
+  httpsHost: string;
+  httpsPort: number;
+  socksHost: string;
+  socksPort: number;
+} {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { httpHost: "", httpPort: 0, httpsHost: "", httpsPort: 0, socksHost: "", socksPort: 0 };
+  }
+  if (!trimmed.includes("=")) {
+    const hp = parseWinHostPort(trimmed);
+    return {
+      httpHost: hp.host,
+      httpPort: hp.port,
+      httpsHost: hp.host,
+      httpsPort: hp.port,
+      socksHost: hp.host,
+      socksPort: hp.port,
+    };
+  }
+  const map: Record<string, { host: string; port: number }> = {};
+  for (const part of trimmed.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq === -1) continue;
+    const proto = part.slice(0, eq).trim().toLowerCase();
+    const target = parseWinHostPort(part.slice(eq + 1));
+    map[proto] = target;
+  }
+  return {
+    httpHost: map.http?.host || "",
+    httpPort: map.http?.port || 0,
+    httpsHost: map.https?.host || map.http?.host || "",
+    httpsPort: map.https?.port || map.http?.port || 0,
+    socksHost: map.socks?.host || "",
+    socksPort: map.socks?.port || 0,
+  };
+}
+
+async function refreshWinInetSettings(): Promise<void> {
+  if (process.platform !== "win32") return;
+  const ps =
+    '$sig = \'[DllImport("wininet.dll", SetLastError=true)] public static extern bool InternetSetOption(IntPtr h, int opt, IntPtr buf, int len);\';' +
+    '$t = Add-Type -MemberDefinition $sig -Name WinInetRefresh -Namespace ClaudeGate -PassThru;' +
+    '$t::InternetSetOption([IntPtr]::Zero, 39, [IntPtr]::Zero, 0) | Out-Null;' +
+    '$t::InternetSetOption([IntPtr]::Zero, 37, [IntPtr]::Zero, 0) | Out-Null;';
+  await execFileAsync(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps],
+    { timeout: 4000, windowsHide: true }
+  ).catch(() => {});
+}
+
 export async function getSystemProxyStatus(
   gatePort: number,
   upstreamPort: number
 ): Promise<SystemProxyStatus> {
+  if (process.platform === "win32") {
+    let stdout = "";
+    try {
+      const res = await execFileAsync("reg", ["query", WIN_INET_KEY], {
+        timeout: 2500,
+        windowsHide: true,
+      });
+      stdout = res.stdout || "";
+    } catch {
+      stdout = "";
+    }
+    const enableRaw = parseWinRegValue(stdout, "ProxyEnable");
+    const enabled = enableRaw === "0x1" || enableRaw === "1";
+    const serverRaw = parseWinRegValue(stdout, "ProxyServer");
+    const parsed = parseWinProxyServer(serverRaw);
+    const isLocal = (h: string) => h === "127.0.0.1" || h === "localhost";
+    const pointingToGate =
+      enabled &&
+      isLocal(parsed.httpHost) &&
+      isLocal(parsed.httpsHost) &&
+      parsed.httpPort === gatePort &&
+      parsed.httpsPort === gatePort;
+    const pointingToUpstream =
+      enabled &&
+      isLocal(parsed.httpHost) &&
+      isLocal(parsed.httpsHost) &&
+      parsed.httpPort === upstreamPort &&
+      parsed.httpsPort === upstreamPort;
+
+    return {
+      platform: process.platform,
+      activeService: "Windows WinINet",
+      httpEnabled: enabled && Boolean(parsed.httpHost),
+      httpHost: parsed.httpHost,
+      httpPort: parsed.httpPort,
+      httpsEnabled: enabled && Boolean(parsed.httpsHost),
+      httpsHost: parsed.httpsHost,
+      httpsPort: parsed.httpsPort,
+      socksEnabled: enabled && Boolean(parsed.socksHost),
+      socksHost: parsed.socksHost,
+      socksPort: parsed.socksPort,
+      pointingToGate,
+      pointingToUpstream,
+      managedByGate: fs.existsSync(getBackupPath()),
+    };
+  }
+
   if (process.platform !== "darwin") {
     return {
       platform: process.platform,
@@ -169,8 +290,57 @@ export async function enableGateSystemProxy(
   gatePort: number,
   upstreamPort: number
 ): Promise<SystemProxyStatus> {
+  if (process.platform === "win32") {
+    const current = await getSystemProxyStatus(gatePort, upstreamPort);
+    const backupPath = getBackupPath();
+    if (!fs.existsSync(backupPath) && !current.pointingToGate) {
+      ensureDataDir();
+      const backup: SavedProxyBackup = {
+        service: "Windows WinINet",
+        httpEnabled: current.httpEnabled,
+        httpHost: current.httpHost,
+        httpPort: current.httpPort,
+        httpsEnabled: current.httpsEnabled,
+        httpsHost: current.httpsHost,
+        httpsPort: current.httpsPort,
+        socksEnabled: current.socksEnabled,
+        socksHost: current.socksHost,
+        socksPort: current.socksPort,
+      };
+      fs.writeFileSync(backupPath, JSON.stringify(backup, null, 2), "utf8");
+    }
+
+    await execFileAsync(
+      "reg",
+      ["add", WIN_INET_KEY, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f"],
+      { timeout: 2500, windowsHide: true }
+    );
+    await execFileAsync(
+      "reg",
+      ["add", WIN_INET_KEY, "/v", "ProxyServer", "/t", "REG_SZ", "/d", `127.0.0.1:${gatePort}`, "/f"],
+      { timeout: 2500, windowsHide: true }
+    );
+    await execFileAsync(
+      "reg",
+      [
+        "add",
+        WIN_INET_KEY,
+        "/v",
+        "ProxyOverride",
+        "/t",
+        "REG_SZ",
+        "/d",
+        "localhost;127.*;10.*;172.16.*;192.168.*;<local>",
+        "/f",
+      ],
+      { timeout: 2500, windowsHide: true }
+    );
+    await refreshWinInetSettings();
+    return getSystemProxyStatus(gatePort, upstreamPort);
+  }
+
   if (process.platform !== "darwin") {
-    throw new Error("System proxy automation is only supported on macOS.");
+    throw new Error("System proxy automation is only supported on macOS and Windows.");
   }
   const current = await getSystemProxyStatus(gatePort, upstreamPort);
   if (!current.activeService) {
@@ -210,6 +380,67 @@ export async function restoreSystemProxy(
   gatePort: number,
   upstreamPort: number
 ): Promise<SystemProxyStatus> {
+  if (process.platform === "win32") {
+    const backupPath = getBackupPath();
+    let backup: SavedProxyBackup | null = null;
+    if (fs.existsSync(backupPath)) {
+      try {
+        backup = JSON.parse(fs.readFileSync(backupPath, "utf8")) as SavedProxyBackup;
+      } catch {
+        backup = null;
+      }
+    }
+
+    if (backup) {
+      await execFileAsync(
+        "reg",
+        [
+          "add",
+          WIN_INET_KEY,
+          "/v",
+          "ProxyEnable",
+          "/t",
+          "REG_DWORD",
+          "/d",
+          backup.httpEnabled ? "1" : "0",
+          "/f",
+        ],
+        { timeout: 2500, windowsHide: true }
+      );
+      if (backup.httpHost && backup.httpPort) {
+        await execFileAsync(
+          "reg",
+          [
+            "add",
+            WIN_INET_KEY,
+            "/v",
+            "ProxyServer",
+            "/t",
+            "REG_SZ",
+            "/d",
+            `${backup.httpHost}:${backup.httpPort}`,
+            "/f",
+          ],
+          { timeout: 2500, windowsHide: true }
+        );
+      }
+      fs.unlinkSync(backupPath);
+    } else {
+      await execFileAsync(
+        "reg",
+        ["add", WIN_INET_KEY, "/v", "ProxyEnable", "/t", "REG_DWORD", "/d", "1", "/f"],
+        { timeout: 2500, windowsHide: true }
+      );
+      await execFileAsync(
+        "reg",
+        ["add", WIN_INET_KEY, "/v", "ProxyServer", "/t", "REG_SZ", "/d", `127.0.0.1:${upstreamPort}`, "/f"],
+        { timeout: 2500, windowsHide: true }
+      );
+    }
+    await refreshWinInetSettings();
+    return getSystemProxyStatus(gatePort, upstreamPort);
+  }
+
   if (process.platform !== "darwin") {
     return getSystemProxyStatus(gatePort, upstreamPort);
   }
@@ -297,6 +528,22 @@ export function getLaunchAtLoginPath(): string {
 }
 
 export function getLaunchAtLoginStatus(): boolean {
+  if (process.env.CLAUDEBAN_LAUNCH_AGENT_PATH?.trim()) {
+    return fs.existsSync(getLaunchAtLoginPath());
+  }
+  if (process.platform === "win32") {
+    try {
+      const out = execFileSync("reg", ["query", WIN_RUN_KEY, "/v", WIN_RUN_VALUE], {
+        encoding: "utf8",
+        timeout: 2000,
+        windowsHide: true,
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+      return out.includes(WIN_RUN_VALUE);
+    } catch {
+      return false;
+    }
+  }
   if (process.platform !== "darwin") return false;
   return fs.existsSync(getLaunchAtLoginPath());
 }
@@ -310,6 +557,43 @@ function escapeXml(str: string): string {
 }
 
 export function setLaunchAtLogin(enable: boolean): boolean {
+  if (process.env.CLAUDEBAN_LAUNCH_AGENT_PATH?.trim()) {
+    const markerPath = getLaunchAtLoginPath();
+    if (!enable) {
+      if (fs.existsSync(markerPath)) fs.unlinkSync(markerPath);
+      return false;
+    }
+    fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+    fs.writeFileSync(markerPath, "enabled\n", "utf8");
+    return true;
+  }
+
+  if (process.platform === "win32") {
+    if (!enable) {
+      try {
+        execFileSync("reg", ["delete", WIN_RUN_KEY, "/v", WIN_RUN_VALUE, "/f"], {
+          timeout: 2000,
+          windowsHide: true,
+          stdio: "ignore",
+        });
+      } catch {
+        // value may not exist
+      }
+      return false;
+    }
+
+    const appExec = process.env.CLAUDEGATE_APP_EXEC;
+    const cmd = appExec
+      ? `"${appExec}"`
+      : `"${process.execPath}" "${path.resolve(process.argv[1] || "dist/src/index.js")}" start`;
+    execFileSync("reg", ["add", WIN_RUN_KEY, "/v", WIN_RUN_VALUE, "/t", "REG_SZ", "/d", cmd, "/f"], {
+      timeout: 2000,
+      windowsHide: true,
+      stdio: "ignore",
+    });
+    return true;
+  }
+
   if (process.platform !== "darwin") return false;
   const plistPath = getLaunchAtLoginPath();
 

@@ -1,11 +1,12 @@
 # ClaudeGate (claudegate)
 
-> Native macOS menu bar anti-ban proxy gate, 7-probe IP/DNS/IPv6/WebRTC leak detector, and one-click Clash Verge Rev (Mihomo) auto-fixer for Claude, Anthropic API, and Claude Code CLI. Zero TLS MITM, 0-byte fail-closed protection.
+> Native macOS & Windows menu bar/tray anti-ban proxy gate, 7-probe IP/DNS/IPv6/WebRTC leak detector, and one-click Clash Verge Rev (Mihomo) auto-fixer for Claude, Anthropic API, and Claude Code CLI. Zero TLS MITM, 0-byte fail-closed protection.
 
 Repository: https://github.com/hsjx945/claudegate
+Releases: https://github.com/hsjx945/claudegate/releases/latest
 License: MIT
-Platform: macOS 13+ (Apple Silicon & Intel), Node.js >= 22.5, Swift 5
-Primary Upstream Supported: Clash Verge Rev / Mihomo core
+Platforms: macOS 13+ (Apple Silicon arm64 & Intel x64), Windows 10/11 (x64)
+Runtime: Node.js >= 22.5 (bundled in release packages), Swift 5 (macOS), .NET WinForms (Windows)
 
 ## What Problem ClaudeGate Solves
 Claude Web (`claude.ai`), Claude Code CLI, and Anthropic API (`api.anthropic.com`) accounts are frequently flagged or banned due to accidental direct connections, restricted-region proxy nodes (`CN`, `HK`, `MO`, `RU`, `KP`, `IR`, `BY`, `SY`, `CU`), unproxied Claude ecosystem sub-domains (`statsig.com`, `sentry.io`, `stripe.com`, `claudeusercontent.com`, `downloads.claude.ai`, `modelcontextprotocol.io`, Datadog intakes), TUN direct leaks, DNS/IPv6/WebRTC leaks, or datacenter IP reputation issues.

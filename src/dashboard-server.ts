@@ -181,6 +181,12 @@ export class DashboardServer {
       this.config.upstreamPort
     );
 
+    const noProxyActive =
+      clash.connected &&
+      !clash.configs?.tun?.enable &&
+      !systemProxy.pointingToGate &&
+      !systemProxy.pointingToUpstream;
+
     let health: "safe" | "warn" | "danger" = "safe";
     if (claudeDecision.action === "BLOCK" || audit.dangerCount > 0) {
       health = "danger";
@@ -188,6 +194,7 @@ export class DashboardServer {
       claudeDecision.action === "WARN" ||
       audit.warnCount > 0 ||
       audit.globalRisk ||
+      noProxyActive ||
       (clash.connected && audit.missingExplicitRuleDomains.length > 0)
     ) {
       health = "warn";
@@ -219,6 +226,17 @@ export class DashboardServer {
         detail: claudeDecision.message,
         fixHint: claudeDecision.fixHint,
         yamlSnippet: claudeDecision.yamlSnippet,
+      });
+    }
+
+    if (noProxyActive) {
+      activeAlerts.push({
+        level: "warn",
+        code: "NO_PROXY_ACTIVE",
+        title: "当前系统代理与 TUN 均未开启（网络未走代理）",
+        detail:
+          "检测到 Clash TUN 未开启且系统代理未指向 ClaudeGate 或 Clash，浏览器访问 Claude 可能正通过本地宽带直接联网！",
+        fixHint: "请在 Clash Verge 开启 TUN，或点击下方一键将系统代理接入 ClaudeGate。",
       });
     }
 

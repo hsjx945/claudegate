@@ -3,6 +3,7 @@ import { formatHourBucket, type Store, type TrafficDelta } from "./db.js";
 import type { ExitIpProber } from "./exit-ip.js";
 import type { GuardEngine } from "./guard.js";
 import type { MihomoClient, MihomoConnection, MihomoRule } from "./mihomo.js";
+import { getSystemProxyStatus } from "./macos-proxy.js";
 import type { MacNotifier } from "./notifier.js";
 import { normalizeType } from "./rules-engine.js";
 
@@ -34,6 +35,10 @@ export class Watchdog {
   private lastMode = "";
   private lastPrimaryLeaf = "";
   private lastBannedIpLog = { key: "", at: 0 };
+  private wasClashConnected: boolean | null = null;
+  private lastOfflineAlertAt = 0;
+  private lastNoProxyCheckAt = 0;
+  private lastNoProxyAlertAt = 0;
 
   private trackedConns = new Map<string, TrackedConn>();
   private pendingDeltas = new Map<string, TrafficDelta>();
@@ -232,6 +237,46 @@ export class Watchdog {
       // Poll connections for traffic accounting & TUN direct leak kill
       const connSnap = await this.mihomo.getConnections();
       await this.processConnections(connSnap.connections || [], currentMode);
+
+      this.wasClashConnected = true;
+
+      // Alert if neither TUN nor local proxy is active (traffic bypasses proxy completely)
+      if (process.env.CLAUDEBAN_NO_NOTIFY !== "1" && !configsRes.tun?.enable && now - this.lastNoProxyCheckAt > 10_000) {
+        this.lastNoProxyCheckAt = now;
+        try {
+          const sysProxy = await getSystemProxyStatus(this.config.proxyPort, this.config.upstreamPort);
+          if (!sysProxy.pointingToGate && !sysProxy.pointingToUpstream) {
+            if (now - this.lastNoProxyAlertAt > 5 * 60_000) {
+              this.lastNoProxyAlertAt = now;
+              const noProxyMsg =
+                "检测到 Clash Verge TUN 与系统代理均未开启，当前浏览或终端请求正直接联网，存在裸连 Claude 封号风险！";
+              this.store.recordGuardEvent({
+                ts: new Date().toISOString(),
+                domain: "claude.ai",
+                source: "watchdog_mode",
+                action: "WARN",
+                reasonCode: "NO_PROXY_ACTIVE",
+                message: noProxyMsg,
+                fixHint: "请在 Clash Verge 开启 TUN，或一键将系统代理接入 ClaudeGate。",
+                clashMode: currentMode,
+                node: "DIRECT",
+                exitIp: this.exitIpProber.getState().current?.ip || "",
+                exitCountry: this.exitIpProber.getState().current?.countryCode || "",
+                process: "system-proxy",
+              });
+              this.notifier.notify(
+                "watchdog_proxy:inactive",
+                "警告：当前网络未经过代理！",
+                "TUN 与系统代理均未开启",
+                noProxyMsg,
+                true
+              );
+            }
+          }
+        } catch {
+          // ignore system proxy probe error
+        }
+      }
     } catch (err) {
       const errMsg = (err as Error).message;
       const prev = this.guard.getClashSnapshot();
@@ -240,6 +285,36 @@ export class Watchdog {
         connected: false,
         lastError: errMsg,
       });
+
+      const now = Date.now();
+      if (this.wasClashConnected !== false || now - this.lastOfflineAlertAt > 5 * 60_000) {
+        this.wasClashConnected = false;
+        this.lastOfflineAlertAt = now;
+        const offlineMsg =
+          "Clash Verge Rev 未运行或控制接口已断开，当前网络可能未受代理保护！若继续直接访问 Claude 将存在极高封号风险。";
+        this.store.recordGuardEvent({
+          ts: new Date().toISOString(),
+          domain: "claude.ai",
+          source: "watchdog_mode",
+          action: "BLOCK",
+          reasonCode: "CLASH_OFFLINE",
+          message: offlineMsg,
+          fixHint: "请立即启动 Clash Verge Rev 并确认处于 Rule 模式；开启系统代理接管后门禁会自动 0 字节拦截裸连。",
+          clashMode: "offline",
+          node: "DIRECT",
+          exitIp: this.exitIpProber.getState().current?.ip || "",
+          exitCountry: this.exitIpProber.getState().current?.countryCode || "",
+          process: "clash-verge",
+        });
+        this.notifier.notify(
+          "watchdog_clash:offline",
+          "警告：Clash Verge 未运行或已断开！",
+          "网络未经过代理保护",
+          offlineMsg,
+          true
+        );
+      }
+
       // Try re-discovering socket on disconnect
       this.mihomo.refreshEndpoint();
     } finally {

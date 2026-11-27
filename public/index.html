@@ -138,7 +138,7 @@
             <button id="btn-copy-cli" class="btn btn-sm btn-outline">复制 CLI</button>
           </div>
 
-          <button id="btn-toggle-proxy" class="btn btn-outline btn-block">🔌 将 macOS 系统代理接入 ClaudeGate</button>
+          <button id="btn-toggle-proxy" class="btn btn-outline btn-block">🔌 将系统代理接入 ClaudeGate</button>
         </div>
 
         <div class="panel-card">
@@ -156,7 +156,7 @@
 
           <label class="checkbox-row">
             <input type="checkbox" id="chk-fix-include-proxy" />
-            <span>一键修复时同时将 macOS 系统代理接入 ClaudeGate</span>
+            <span>一键修复时同时将系统代理接入 ClaudeGate</span>
           </label>
 
           <button id="btn-auto-fix" class="btn btn-primary btn-block">⚡ 一键修复全部安全隐患</button>
@@ -415,21 +415,21 @@
             <input type="checkbox" id="cfg-launch-at-login" />
             <div>
               <strong>🚀 开机自动启动</strong>
-              <span>登录 macOS 时自动启动 ClaudeGate 菜单栏哨兵（与菜单栏同步）</span>
+              <span>登录系统时自动启动 ClaudeGate 托盘/菜单栏哨兵（与托盘同步）</span>
             </div>
           </label>
           <label class="toggle-item">
             <input type="checkbox" id="cfg-sys-proxy" />
             <div>
-              <strong>🔌 macOS 系统代理接管</strong>
-              <span>将系统 HTTP/HTTPS/SOCKS 代理指向门禁端口以启用 0 字节事前拦截</span>
+              <strong>🔌 系统代理接管</strong>
+              <span>将系统 HTTP/HTTPS 代理指向门禁端口以启用 0 字节事前拦截</span>
             </div>
           </label>
           <label class="toggle-item">
             <input type="checkbox" id="cfg-notify" />
             <div>
-              <strong>🔔 macOS 原生桌面通知</strong>
-              <span>拦截直连或出口 IP 异常时立即弹出桌面通知提醒</span>
+              <strong>🔔 原生桌面通知与提示音</strong>
+              <span>拦截直连、未走代理或出口异常时立即弹窗并发出警示音</span>
             </div>
           </label>
         </div>

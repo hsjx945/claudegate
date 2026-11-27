@@ -271,6 +271,10 @@ final class EngineManager {
     private func resolveNodeExecutable() -> String? {
         let fm = FileManager.default
         if let resPath = Bundle.main.resourcePath {
+            let bundledNode = URL(fileURLWithPath: resPath).appendingPathComponent("runtime/node").path
+            if fm.isExecutableFile(atPath: bundledNode) {
+                return bundledNode
+            }
             let nodePathFile = URL(fileURLWithPath: resPath).appendingPathComponent("engine/node-path.txt")
             if let raw = try? String(contentsOf: nodePathFile, encoding: .utf8) {
                 let candidate = raw.trimmingCharacters(in: .whitespacesAndNewlines)

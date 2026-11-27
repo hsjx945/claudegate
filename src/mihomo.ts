@@ -83,12 +83,59 @@ export interface MihomoEndpoint {
   secret?: string;
 }
 
+function parseSimpleYamlScalar(content: string, key: string): string {
+  const m = content.match(new RegExp(`^\\s*${key}\\s*:\\s*["']?([^"'\\r\\n#]+)["']?`, "m"));
+  return m ? m[1].trim() : "";
+}
+
+function discoverWindowsController(config: AppConfig): MihomoEndpoint | null {
+  const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  const vergeDir = path.join(appData, "io.github.clash-verge-rev.clash-verge-rev");
+  let baseUrl = config.mihomoTcpUrl || "http://127.0.0.1:9097";
+  let secret = config.mihomoSecret || "";
+
+  for (const filename of ["clash-verge.yaml", "verge.yaml"]) {
+    const filePath = path.join(vergeDir, filename);
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      const content = fs.readFileSync(filePath, "utf8");
+      const ec = parseSimpleYamlScalar(content, "external-controller");
+      if (ec && !baseUrl.includes(ec)) {
+        const normalizedHost = ec.startsWith(":") ? `127.0.0.1${ec}` : ec.replace(/^0\.0\.0\.0:/, "127.0.0.1:");
+        baseUrl = normalizedHost.startsWith("http") ? normalizedHost : `http://${normalizedHost}`;
+      }
+      const sec = parseSimpleYamlScalar(content, "secret");
+      if (sec && !secret) {
+        secret = sec;
+      }
+    } catch {
+      // ignore read errors
+    }
+  }
+
+  return {
+    kind: "tcp",
+    baseUrl,
+    secret,
+  };
+}
+
 export function discoverMihomoEndpoint(config: AppConfig): MihomoEndpoint {
   if (config.mihomoSocketPath && config.mihomoSocketPath.trim()) {
     const explicit = config.mihomoSocketPath.trim();
-    if (fs.existsSync(explicit)) {
+    if (process.platform === "win32" || fs.existsSync(explicit)) {
       return { kind: "unix", socketPath: explicit };
     }
+  }
+
+  if (process.platform === "win32") {
+    return (
+      discoverWindowsController(config) || {
+        kind: "tcp",
+        baseUrl: config.mihomoTcpUrl || "http://127.0.0.1:9097",
+        secret: config.mihomoSecret || "",
+      }
+    );
   }
 
   const uid = typeof process.getuid === "function" ? process.getuid() : 501;

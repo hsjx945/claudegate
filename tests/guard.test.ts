@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { getDefaultConfig } from "../src/config.js";
+import { Store } from "../src/db.js";
 import { ExitIpProber } from "../src/exit-ip.js";
 import { GuardEngine } from "../src/guard.js";
-import type { MihomoProxy, MihomoRule } from "../src/mihomo.js";
+import { MihomoClient, type MihomoProxy, type MihomoRule } from "../src/mihomo.js";
+import { MacNotifier } from "../src/notifier.js";
+import { Watchdog } from "../src/watchdog.js";
 
 const baseProxies: Record<string, MihomoProxy> = {
   DIRECT: { name: "DIRECT", type: "Direct" },
@@ -216,4 +222,34 @@ test("ExitIpProber ignores CN->JP recovery as jump and clears jump once stable",
 
   const afterStable = await prober.probeNow(); // US -> US stable
   assert.equal(afterStable.countryJumped, false);
+});
+
+test("Watchdog logs CLASH_OFFLINE event when Mihomo controller is unreachable", async () => {
+  process.env.CLAUDEBAN_NO_NOTIFY = "1";
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "claudeban-offline-"));
+  const store = new Store(path.join(tmpDir, "test.db"));
+  const cfg = getDefaultConfig();
+  cfg.mihomoTcpUrl = "http://127.0.0.1:19999";
+
+  const mihomo = new MihomoClient(cfg, { kind: "tcp", baseUrl: cfg.mihomoTcpUrl });
+  const exitIpProber = new ExitIpProber(cfg, async () => ({
+    ip: "198.51.100.42",
+    countryCode: "JP",
+    country: "Japan",
+    checkedAt: new Date().toISOString(),
+    source: "test",
+  }));
+  const guard = new GuardEngine(cfg);
+  const notifier = new MacNotifier(false);
+  const watchdog = new Watchdog(cfg, mihomo, exitIpProber, guard, store, notifier);
+
+  try {
+    await watchdog.syncOnce();
+    const events = store.getRecentEvents(10);
+    assert.ok(events.some((e) => e.action === "BLOCK" && e.reasonCode === "CLASH_OFFLINE"));
+  } finally {
+    watchdog.stop();
+    store.close();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
